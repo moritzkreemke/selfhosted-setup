@@ -1,0 +1,7 @@
+# location            = "germanywestcentral"
+# resource_group_name = "my-custom-arm-rg"
+# vm_name             = "my-azure-arm-vm"
+# admin_username      = "customadmin"
+# ssh_public_key_path = "~/.ssh/another_key.pub"
+# vm_size             = "Standard_B2pls_v2"
+# subscription_id     = "12345678-1234-1234-1234-123456789abc"

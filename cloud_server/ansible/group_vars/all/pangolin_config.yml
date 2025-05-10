@@ -1,0 +1,22 @@
+
+pangolin_dashboard_url: "https://pangolin.{{ pangolin_base_domain }}"
+pangolin_gerbil_base_endpoint: "https://pangolin.{{ pangolin_base_domain }}"
+pangolin_cors_origins:
+  - "https://pangolin.{{ pangolin_base_domain }}"
+pangolin_admin_email: "admin@{{ pangolin_base_domain }}"
+
+# Deployment paths on the target server
+pangolin_deploy_dir: "/opt/pangolin"
+pangolin_config_dir: "{{ pangolin_deploy_dir }}/config"
+pangolin_traefik_config_dir: "{{ pangolin_config_dir }}/traefik"
+
+# Source paths (relative to the playbook in cloud_server/ansible/)
+pangolin_local_source_dir: "{{ playbook_dir }}/../../docker/pangolin"
+pangolin_local_compose_file: "{{ pangolin_local_source_dir }}/compose.yml"
+pangolin_local_traefik_dynamic_config: "{{ pangolin_local_source_dir }}/config/traefik/dynamic_config.yml"
+pangolin_local_traefik_config: "{{ pangolin_local_source_dir }}/config/traefik/traefik_config.yml"
+
+# Docker Compose settings
+pangolin_compose_project_name: "pangolin"
+pangolin_recreate_services: "smart"
+pangolin_pull_images: true

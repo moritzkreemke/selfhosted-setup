@@ -1,0 +1,13 @@
+- name: Provision and Configure Azure ARM Server
+  hosts: azure_arm_servers # Matches group in inventory.ini
+  # 'become: yes' is now set in ansible.cfg under [privilege_escalation]
+
+  roles:
+    - role: common
+      tags: ['common', 'setup']
+
+    - role: docker
+      tags: ['docker', 'install']
+
+    - role: repo
+      tags: ['repo', 'update']

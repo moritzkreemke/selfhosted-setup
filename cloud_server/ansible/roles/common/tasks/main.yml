@@ -1,0 +1,101 @@
+
+- name: Gather instance facts (needed for distribution release)
+  ansible.builtin.setup:
+    filter:
+      - ansible_distribution_release # Only gather specific facts if needed
+
+- name: Update apt cache and upgrade all packages
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+    autoremove: yes
+    autoclean: yes
+
+- name: Install common prerequisite packages
+  ansible.builtin.package:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - software-properties-common
+      - vim
+      - git # Git CLI is needed for the git module
+      - htop
+      - firewalld
+      - fail2ban
+      - unattended-upgrades
+    state: present
+
+ # Configure Firewall (firewalld)
+- name: Ensure firewalld service is started and enabled
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Configure firewalld to allow SSH
+  ansible.posix.firewalld:
+    service: ssh
+    permanent: yes
+    state: enabled
+    immediate: yes
+
+- name: Configure firewalld to allow HTTP and HTTPS (optional)
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop:
+    - http
+    - https
+
+# Harden SSH Configuration
+- name: Disallow root login over SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+  notify: Restart sshd
+
+- name: Disable password authentication for SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+  notify: Restart sshd
+
+- name: Disable challenge response authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ChallengeResponseAuthentication'
+    line: 'ChallengeResponseAuthentication no'
+  notify: Restart sshd
+
+- name: Ensure UsePAM is yes
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?UsePAM'
+    line: 'UsePAM yes'
+  notify: Restart sshd
+
+# Configure Fail2Ban
+- name: Ensure fail2ban service is started and enabled
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: yes
+
+- name: Create fail2ban jail.local for SSHD override
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = 1h
+      [sshd]
+      enabled = true
+      port = ssh
+    force: no # Do not overwrite if file exists
+  notify: Restart fail2ban
