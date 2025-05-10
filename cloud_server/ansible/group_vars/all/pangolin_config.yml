@@ -6,7 +6,7 @@ pangolin_cors_origins:
 pangolin_admin_email: "admin@{{ pangolin_base_domain }}"
 
 # Deployment paths on the target server
-pangolin_deploy_dir: "/opt/pangolin"
+pangolin_deploy_dir: "~/pangolin"
 pangolin_config_dir: "{{ pangolin_deploy_dir }}/config"
 pangolin_traefik_config_dir: "{{ pangolin_config_dir }}/traefik"
 
@@ -20,3 +20,28 @@ pangolin_local_traefik_config: "{{ pangolin_local_source_dir }}/config/traefik/t
 pangolin_compose_project_name: "pangolin"
 pangolin_recreate_services: "smart"
 pangolin_pull_images: true
+
+# Traefik specific configurations
+pangolin_traefik_app_subdomain: "pangolin"
+
+# Fully qualified domain names for Traefik (derived, pangolin_base_domain comes from vault.yml)
+pangolin_traefik_app_fqdn: "{{ pangolin_traefik_app_subdomain }}.{{ pangolin_base_domain }}"
+
+# Traefik internal service details (these are the service names and ports as defined in your Docker Compose)
+traefik_internal_pangolin_hostname: "pangolin" # Service name in compose.yml
+traefik_internal_nextjs_port: 3002
+traefik_internal_api_port: 3000
+traefik_internal_config_api_port: 3001 # Port for Traefik provider API
+
+# Let's Encrypt configuration
+# pangolin_admin_email is already defined and derived from pangolin_base_domain
+# We will use it for Let's Encrypt email. If you need a different one, define it here or in vault.yml
+traefik_letsencrypt_email: "{{ pangolin_admin_email }}"
+traefik_acme_storage_path: "/letsencrypt/acme.json" # Path inside the Traefik container
+
+# Traefik logging level
+traefik_log_level: "INFO"
+
+# Traefik provider poll interval
+traefik_provider_poll_interval: "5s"
+

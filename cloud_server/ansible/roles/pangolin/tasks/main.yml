@@ -12,7 +12,7 @@
 
 - name: Copy Traefik dynamic configuration
   ansible.builtin.copy:
-    src: "{{ pangolin_local_traefik_dynamic_config }}"
+    src: dynamic_config.yml.j2
     dest: "{{ pangolin_traefik_config_dir }}/dynamic_config.yml"
     owner: root
     group: root
@@ -21,7 +21,7 @@
 
 - name: Copy Traefik main configuration
   ansible.builtin.copy:
-    src: "{{ pangolin_local_traefik_config }}"
+    src: traefik_config.yml.j2
     dest: "{{ pangolin_traefik_config_dir }}/traefik_config.yml"
     owner: root
     group: root

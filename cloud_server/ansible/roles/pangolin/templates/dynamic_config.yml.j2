@@ -1,0 +1,53 @@
+    http:
+      middlewares:
+        redirect-to-https:
+          redirectScheme:
+            scheme: https
+
+      routers:
+        # HTTP to HTTPS redirect router for the test domain
+        main-app-router-redirect:
+          rule: "Host(`{{ pangolin_traefik_app_fqdn }}`)"
+          service: next-service # Or a dummy service if this is purely for redirect
+          entryPoints:
+            - web
+          middlewares:
+            - redirect-to-https
+
+        # Next.js router (handles everything except API and WebSocket paths)
+        next-router:
+          rule: "Host(`{{ pangolin_traefik_app_fqdn }}`) && !PathPrefix(`/api/v1`)"
+          service: next-service
+          entryPoints:
+            - websecure
+          tls:
+            certResolver: letsencrypt
+
+        # API router (handles /api/v1 paths)
+        api-router:
+          rule: "Host(`{{ pangolin_traefik_app_fqdn }}`) && PathPrefix(`/api/v1`)"
+          service: api-service
+          entryPoints:
+            - websecure
+          tls:
+            certResolver: letsencrypt
+
+        # WebSocket router
+        ws-router:
+          rule: "Host(`{{ pangolin_traefik_app_fqdn }}`)" # Assumes WebSocket is on the main app domain
+          service: api-service # Assuming WS is handled by the same backend as API
+          entryPoints:
+            - websecure
+          tls:
+            certResolver: letsencrypt
+
+      services:
+        next-service:
+          loadBalancer:
+            servers:
+              - url: "http://{{ traefik_internal_pangolin_hostname }}:{{ traefik_internal_nextjs_port }}" # Next.js server
+
+        api-service:
+          loadBalancer:
+            servers:
+              - url: "http://{{ traefik_internal_pangolin_hostname }}:{{ traefik_internal_api_port }}" # API/WebSocket server

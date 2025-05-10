@@ -1,0 +1,44 @@
+    api:
+      insecure: true # Consider setting to false in production and accessing via a secure entrypoint if needed
+      dashboard: true
+
+    providers:
+      http:
+        endpoint: "http://{{ traefik_internal_pangolin_hostname }}:{{ traefik_internal_config_api_port }}/api/v1/traefik-config"
+        pollInterval: "{{ traefik_provider_poll_interval }}"
+      file:
+        filename: "/etc/traefik/dynamic_config.yml" # This path is inside the Traefik container
+
+    experimental:
+      plugins:
+        badger:
+          moduleName: "github.com/fosrl/badger"
+          version: "v1.1.0"
+
+    log:
+      level: "{{ traefik_log_level }}"
+      format: "common"
+
+    certificatesResolvers:
+      letsencrypt:
+        acme:
+          httpChallenge:
+            entryPoint: web
+          email: "{{ traefik_letsencrypt_email }}"
+          storage: "{{ traefik_acme_storage_path }}" # Path inside the Traefik container
+          caServer: "https://acme-v02.api.letsencrypt.org/directory"
+
+    entryPoints:
+      web:
+        address: ":80"
+      websecure:
+        address: ":443"
+        transport:
+          respondingTimeouts:
+            readTimeout: "30m"
+        http:
+          tls:
+            certResolver: "letsencrypt"
+
+    serversTransport:
+      insecureSkipVerify: true # Be cautious with this in production. True if backend services use self-signed certs.
