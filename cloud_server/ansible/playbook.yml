@@ -11,3 +11,6 @@
 
     - role: repo
       tags: ['repo', 'update']
+    
+    - role: pangolin
+      tags: pangolin

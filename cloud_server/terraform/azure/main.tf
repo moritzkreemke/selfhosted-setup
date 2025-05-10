@@ -56,6 +56,30 @@ resource "azurerm_network_security_group" "nsg" {
     source_address_prefix      = "*" # For simplicity, restrict this in production
     destination_address_prefix = "*"
   }
+
+  security_rule {
+    name                       = "HTTP"
+    priority                   = 110 # Assign a new priority
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80" # Allow port 80
+    source_address_prefix      = "*"  # Allows any source, necessary for Let's Encrypt
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "HTTPS"
+    priority                   = 120 # Assign a new priority
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443" # Allow port 443
+    source_address_prefix      = "*"   # Allows any source
+    destination_address_prefix = "*"
+  }
 }
 
 resource "azurerm_network_interface" "nic" {

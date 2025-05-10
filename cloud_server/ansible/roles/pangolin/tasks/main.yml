@@ -11,7 +11,7 @@
     - "{{ pangolin_traefik_config_dir }}"
 
 - name: Copy Traefik dynamic configuration
-  ansible.builtin.copy:
+  ansible.builtin.template:
     src: dynamic_config.yml.j2
     dest: "{{ pangolin_traefik_config_dir }}/dynamic_config.yml"
     owner: root
@@ -20,7 +20,7 @@
   notify: Restart Pangolin stack # If you add a handler
 
 - name: Copy Traefik main configuration
-  ansible.builtin.copy:
+  ansible.builtin.template:
     src: traefik_config.yml.j2
     dest: "{{ pangolin_traefik_config_dir }}/traefik_config.yml"
     owner: root
