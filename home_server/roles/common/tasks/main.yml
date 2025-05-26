@@ -1,0 +1,20 @@
+---
+- name: Create docker base directory
+  file:
+    path: "{{ docker_base_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install required packages
+  package:
+    name:
+      - python3-docker
+    state: present
+
+- name: Ensure Docker is running
+  systemd:
+    name: docker
+    state: started
+    enabled: yes

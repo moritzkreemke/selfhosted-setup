@@ -1,0 +1,7 @@
+---
+- name: Create Docker networks
+  docker_network:
+    name: "{{ item.name }}"
+    driver: "{{ item.driver }}"
+    state: present
+  loop: "{{ docker_networks }}"

@@ -1,0 +1,17 @@
+# Docker configuration
+docker_base_dir: /root/docker
+docker_networks:
+  - name: homeserver_network
+    driver: bridge
+
+# Service configurations
+services:
+  newt:
+    name: newt
+    network: homeserver_network
+    data_dir: "{{ docker_base_dir }}/newt"
+    
+  nextcloud:
+    name: nextcloud
+    network: homeserver_network
+    data_dir: "{{ docker_base_dir }}/nextcloud"

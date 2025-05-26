@@ -1,0 +1,9 @@
+---
+- name: Configure Home Server
+  hosts: home_servers
+  become: yes
+  roles:
+    - common
+    - docker_network
+    - newt
+#    - nextcloud

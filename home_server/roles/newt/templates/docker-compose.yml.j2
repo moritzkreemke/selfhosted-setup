@@ -1,0 +1,16 @@
+
+services:
+  newt:
+    image: fosrl/newt
+    container_name: newt
+    restart: unless-stopped
+    environment:
+      - PANGOLIN_ENDPOINT={{ pangolin_endpoint }}
+      - NEWT_ID={{ newt_id }}
+      - NEWT_SECRET={{ newt_secret }}
+    networks:
+      - {{ services.newt.network }}
+
+networks:
+  {{ services.newt.network }}:
+    external: true

@@ -1,6 +1,6 @@
 
 pangolin_dashboard_url: "https://pangolin.{{ pangolin_base_domain }}"
-pangolin_gerbil_base_endpoint: "https://pangolin.{{ pangolin_base_domain }}"
+pangolin_gerbil_base_endpoint: "pangolin.{{ pangolin_base_domain }}"
 pangolin_cors_origins:
   - "https://pangolin.{{ pangolin_base_domain }}"
 pangolin_admin_email: "admin@{{ pangolin_base_domain }}"
