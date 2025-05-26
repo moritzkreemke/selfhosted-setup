@@ -1,6 +1,21 @@
 - name: Provision and Configure Azure ARM Server
   hosts: azure_arm_servers # Matches group in inventory.ini
   # 'become: yes' is now set in ansible.cfg under [privilege_escalation]
+  vars_files:
+    - group_vars/all/pangolin.yml # Contains Pangolin-specific variables
+    - group_vars/all/backup.yml # Contains restic and Pangolin backup variables
+    - group_vars/all/vault.yml
+
+  vars_prompt:
+    - name: pangolin_perform_restore_prompt
+      prompt: "Do you want to restore Pangolin from backup? (yes/no)"
+      private: no
+      default: "no"
+
+  pre_tasks:
+      - name: Update variables from prompts and ensure defaults
+        ansible.builtin.set_fact:
+          pangolin_perform_restore: "{{ pangolin_perform_restore_prompt | bool }}"
 
   roles:
     - role: common
@@ -9,8 +24,5 @@
     - role: docker
       tags: ['docker', 'install']
 
-    - role: repo
-      tags: ['repo', 'update']
-    
     - role: pangolin
       tags: pangolin

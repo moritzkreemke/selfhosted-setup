@@ -1,0 +1,28 @@
+restic_image: "mazzolino/restic:1.8.0"
+restic_backup_cron: "0 3 * * *" 
+restic_prune_cron: "0 4 * * *"  
+restic_check_cron: "0 5 * * *" 
+restic_run_on_startup: "true"
+restic_timezone: "Europe/Berlin"
+
+
+pangolin_backup_paths_on_host:
+  - path: "{{ pangolin_config_dir }}"
+    container_path: "/backup_source/"
+
+
+restic_forget_args: "--keep-daily 7 --keep-monthly 1 --prune"
+
+
+pangolin_perform_restore: false # Set to true via --extra-vars or prompt
+restic_snapshot_to_restore: "latest"
+
+
+pangolin_resticker_compose_file_dest: "{{ pangolin_deploy_dir }}/resticker-compose.yml"
+pangolin_resticker_project_name: "{{ pangolin_compose_project_name }}_backup"
+
+
+
+restic_b2_bucket_name: "homeserver-1-cloud"
+restic_b2_repo_path: "/pangolin" 
+restic_repository_b2: "b2:{{ restic_b2_bucket_name }}:{{ restic_b2_repo_path }}"

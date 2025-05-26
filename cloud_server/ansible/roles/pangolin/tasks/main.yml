@@ -1,4 +1,14 @@
-- name: Ensure Pangolin base and config directories exist
+# roles/pangolin/tasks/main.yml
+---
+- name: "[Pangolin & Backup] Construct RESTIC_BACKUP_SOURCES string for Resticker"
+  ansible.builtin.set_fact:
+    restic_backup_sources_snapshot_paths_string: "{{ pangolin_backup_paths_on_host | map(attribute='container_path') | join(' ') }}"
+  tags: [pangolin, backup, common_setup]
+# -----------------------------------------------------------------------------
+# GROUP 1: ENSURE BASE DIRECTORIES
+# These are needed for Pangolin configs and Resticker's compose file.
+# -----------------------------------------------------------------------------
+- name: "[Pangolin & Backup] Ensure base, config, and Traefik directories exist"
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -6,61 +16,210 @@
     group: root # Or your deployment user
     mode: '0755'
   loop:
-    - "{{ pangolin_deploy_dir }}"
-    - "{{ pangolin_config_dir }}"
-    - "{{ pangolin_traefik_config_dir }}"
+    - "{{ pangolin_deploy_dir }}"        # For Pangolin & Resticker compose files
+    - "{{ pangolin_config_dir }}"        # For Pangolin main config
+    - "{{ pangolin_traefik_config_dir }}" # For Pangolin's Traefik configs
+  tags: [pangolin, backup, common_setup]
 
-- name: Copy Traefik dynamic configuration
+# -----------------------------------------------------------------------------
+# GROUP 2: DEPLOY RESTICKER (BACKUP SYSTEM)
+# Deployed first to make its containers available for potential restore.
+# -----------------------------------------------------------------------------
+- name: "[Backup] Template Resticker Docker Compose file"
   ansible.builtin.template:
-    src: dynamic_config.yml.j2
+    src: resticker-compose.yml.j2
+    dest: "{{ pangolin_resticker_compose_file_dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [pangolin, backup, config]
+
+- name: "[Backup] Deploy/Update Resticker Docker Compose stack"
+  community.docker.docker_compose_v2:
+    project_src: "{{ pangolin_deploy_dir }}"
+    files:
+      - "{{ pangolin_resticker_compose_file_dest | ansible.builtin.basename }}"
+    project_name: "{{ pangolin_resticker_project_name }}"
+    state: present
+    pull: always # Or 'missing'
+    remove_orphans: true
+  register: resticker_compose_status
+  tags: [pangolin, backup, deploy]
+
+- name: "[Backup] Display Resticker deployment status"
+  ansible.builtin.debug:
+    var: resticker_compose_status
+    verbosity: 1
+  tags: [pangolin, backup, deploy]
+
+# -----------------------------------------------------------------------------
+# GROUP 3: CONDITIONAL RESTORE OF PANGOLIN DATA
+# Uses docker run instead of Docker Compose for better control
+# -----------------------------------------------------------------------------
+- name: "[Restore] Manage Pangolin data restoration if requested"
+  block:
+    - name: "[Restore] Ensure Pangolin stack is down before restore"
+      community.docker.docker_compose_v2:
+        project_src: "{{ pangolin_deploy_dir }}"
+        project_name: "{{ pangolin_compose_project_name }}"
+        state: absent
+      ignore_errors: true
+
+    - name: "[Restore] Stop existing backup containers to avoid conflicts"
+      community.docker.docker_compose_v2:
+        project_src: "{{ pangolin_deploy_dir }}"
+        files:
+          - "{{ pangolin_resticker_compose_file_dest | ansible.builtin.basename }}"
+        project_name: "{{ pangolin_resticker_project_name }}"
+        state: absent
+      ignore_errors: true
+
+    - name: "[Restore] Run restore using docker run command"
+      ansible.builtin.command: >-
+        docker run --rm
+        --name {{ pangolin_resticker_project_name }}_restore_temp
+        -e TZ={{ restic_timezone }}
+        -e RESTIC_REPOSITORY={{ restic_repository_b2 }}
+        -e RESTIC_PASSWORD={{ restic_password }}
+        -e B2_ACCOUNT_ID={{ b2_account_id }}
+        -e B2_ACCOUNT_KEY={{ b2_account_key }}
+        {% for item in pangolin_backup_paths_on_host %}-v "{{ item.path }}:{{ item.container_path }}:rw" {% endfor %}
+        --entrypoint /sbin/tini
+        {{ restic_image }}
+        --
+        sh -c "
+        echo '=== Starting restore process ===' &&
+        echo 'Repository: {{ restic_repository_b2 }}' &&
+        echo 'Snapshot: {{ restic_snapshot_to_restore }}' &&
+        echo '=== Checking repository ===' &&
+        restic check --read-data-subset=1% &&
+        echo '=== Listing snapshots ===' &&
+        restic snapshots &&
+        echo '=== Listing files in snapshot ===' &&
+        restic ls {{ restic_snapshot_to_restore }} &&
+        {% for item in pangolin_backup_paths_on_host %}
+        echo '=== Current contents of {{ item.container_path }} ===' &&
+        ls -la {{ item.container_path }} || echo 'Directory empty or does not exist' &&
+        echo '=== Clearing {{ item.container_path }} ===' &&
+        rm -rf {{ item.container_path }}/* {{ item.container_path }}/.* 2>/dev/null || true &&
+        echo '=== Restoring to {{ item.container_path }} ===' &&
+        restic restore {{ restic_snapshot_to_restore }} --target / --verbose &&
+        echo '=== Verifying restored files in {{ item.container_path }} ===' &&
+        ls -la {{ item.container_path }} &&
+        {% endfor %}
+        echo '=== Restore process completed successfully ==='
+        "
+      register: restore_result
+      no_log: true
+      environment:
+        DOCKER_CLI_EXPERIMENTAL: enabled
+
+    - name: "[Restore] Display restore output"
+      ansible.builtin.debug:
+        var: restore_result.stdout_lines
+
+    - name: "[Restore] Display any restore errors"
+      ansible.builtin.debug:
+        var: restore_result.stderr_lines
+      when: restore_result.stderr_lines | length > 0
+
+    - name: "[Restore] Verify files were restored on host"
+      ansible.builtin.command: "ls -la {{ item.path }}"
+      loop: "{{ pangolin_backup_paths_on_host }}"
+      loop_control:
+        label: "Checking {{ item.path }}"
+      register: host_file_check
+
+    - name: "[Restore] Display host directory contents"
+      ansible.builtin.debug:
+        msg: "{{ item.stdout_lines }}"
+      loop: "{{ host_file_check.results }}"
+      loop_control:
+        label: "Host directory contents"
+
+    - name: "[Restore] Restart backup containers"
+      community.docker.docker_compose_v2:
+        project_src: "{{ pangolin_deploy_dir }}"
+        files:
+          - "{{ pangolin_resticker_compose_file_dest | ansible.builtin.basename }}"
+        project_name: "{{ pangolin_resticker_project_name }}"
+        state: present
+        pull: missing
+
+    - name: "[Restore] Set fact that restore has been attempted"
+      ansible.builtin.set_fact:
+        pangolin_restore_attempted: true
+        cacheable: yes
+
+  when: pangolin_perform_restore | bool
+  tags: [pangolin, backup, restore]
+
+# -----------------------------------------------------------------------------
+# GROUP 4: CONFIGURE PANGOLIN (Templates & Files)
+# These tasks are SKIPPED if a restore was just performed.
+# -----------------------------------------------------------------------------
+- name: "[Pangolin] Copy Traefik dynamic configuration"
+  ansible.builtin.template:
+    src: dynamic_config.yml.j2 # Expected in roles/pangolin/templates/
     dest: "{{ pangolin_traefik_config_dir }}/dynamic_config.yml"
     owner: root
     group: root
     mode: '0644'
-  notify: Restart Pangolin stack # If you add a handler
+  notify: Restart Pangolin stack
+  when: not (pangolin_restore_attempted | default(false))
+  tags: [pangolin, config, traefik]
 
-- name: Copy Traefik main configuration
+- name: "[Pangolin] Copy Traefik main configuration"
   ansible.builtin.template:
-    src: traefik_config.yml.j2
+    src: traefik_config.yml.j2 # Expected in roles/pangolin/templates/
     dest: "{{ pangolin_traefik_config_dir }}/traefik_config.yml"
     owner: root
     group: root
     mode: '0644'
-  notify: Restart Pangolin stack # If you add a handler
+  notify: Restart Pangolin stack
+  when: not (pangolin_restore_attempted | default(false))
+  tags: [pangolin, config, traefik]
 
-- name: Template Pangolin main config.yml
+- name: "[Pangolin] Template Pangolin main config.yml"
   ansible.builtin.template:
-    src: config.yml.j2
+    src: config.yml.j2 # Expected in roles/pangolin/templates/
     dest: "{{ pangolin_config_dir }}/config.yml"
     owner: root
     group: root
-    mode: '0640' # Slightly more restrictive as it contains secrets indirectly
-  notify: Restart Pangolin stack # If you add a handler
+    mode: '0640'
+  notify: Restart Pangolin stack
+  when: not (pangolin_restore_attempted | default(false))
+  tags: [pangolin, config]
 
-- name: Copy Docker Compose file for Pangolin
-  ansible.builtin.copy:
-    src: "{{ pangolin_local_compose_file }}"
+- name: "[Pangolin] Copy Docker Compose file for Pangolin"
+  ansible.builtin.template: # If this file is static. If it needs templating, use ansible.builtin.template
+    src: pangolin-compose.yml
     dest: "{{ pangolin_deploy_dir }}/compose.yml"
     owner: root
     group: root
     mode: '0644'
-  notify: Restart Pangolin stack # If you add a handler
+  notify: Restart Pangolin stack
+  tags: [pangolin, deploy]
 
-- name: Deploy Pangolin Docker Compose stack
+# -----------------------------------------------------------------------------
+# GROUP 5: DEPLOY PANGOLIN APPLICATION STACK
+# This runs always, using either freshly templated files or restored files.
+# -----------------------------------------------------------------------------
+- name: "[Pangolin] Deploy Pangolin Docker Compose stack"
   community.docker.docker_compose_v2:
     project_src: "{{ pangolin_deploy_dir }}"
+    files: # Ensure this refers to the correct compose file name for Pangolin
+      - "compose.yml" # Assuming the destination is pangolin_deploy_dir/compose.yml
     project_name: "{{ pangolin_compose_project_name }}"
     state: present
     pull: "{{ pangolin_pull_images }}"
     recreate: "{{ pangolin_recreate_services }}" # 'always', 'never', 'smart'
     remove_orphans: true
   register: pangolin_compose_status
-  # Note: The docker_compose_v2 module handles changes intelligently.
-  # It will only restart containers if the compose file or related configs change.
-  # The 'notify' on previous tasks ensures that if a config file changes,
-  # the handler (if defined) can explicitly restart, or you can rely on docker_compose_v2.
+  tags: [pangolin, deploy]
 
-- name: Display Pangolin deployment status
+- name: "[Pangolin] Display Pangolin deployment status"
   ansible.builtin.debug:
     var: pangolin_compose_status
-    verbosity: 1 # Show only if -v is used
+    verbosity: 1
+  tags: [pangolin, deploy]

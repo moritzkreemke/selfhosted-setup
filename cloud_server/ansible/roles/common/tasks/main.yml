@@ -21,7 +21,6 @@
       - lsb-release
       - software-properties-common
       - vim
-      - git # Git CLI is needed for the git module
       - htop
       - firewalld
       - fail2ban

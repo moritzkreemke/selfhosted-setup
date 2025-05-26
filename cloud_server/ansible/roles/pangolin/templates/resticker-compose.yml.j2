@@ -1,0 +1,48 @@
+
+services:
+  backup:
+    image: {{ restic_image }}
+    container_name: {{ pangolin_resticker_project_name }}_backup
+    restart: unless-stopped
+    environment:
+      - RUN_ON_STARTUP={{ restic_run_on_startup }}
+      - BACKUP_CRON={{ restic_backup_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ restic_repository_b2 }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - RESTIC_BACKUP_SOURCES={{ restic_backup_sources_snapshot_paths_string }}
+      - RESTIC_FORGET_ARGS={{ restic_forget_args }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+    volumes:
+{% for item in pangolin_backup_paths_on_host %}
+      - "{{ item.path }}:{{ item.container_path }}:rw"
+{% endfor %}
+
+
+
+  prune:
+    image: {{ restic_image }}
+    container_name: {{ pangolin_resticker_project_name }}_prune
+    restart: unless-stopped
+    environment:
+      - PRUNE_CRON={{ restic_prune_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ restic_repository_b2 }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+      - SKIP_INIT=true
+
+  check:
+    image: {{ restic_image }}
+    container_name: {{ pangolin_resticker_project_name }}_check
+    restart: unless-stopped
+    environment:
+      - CHECK_CRON={{ restic_check_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ restic_repository_b2 }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+      - SKIP_INIT=true

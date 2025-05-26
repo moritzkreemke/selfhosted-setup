@@ -10,12 +10,6 @@ pangolin_deploy_dir: "{{ ansible_user_dir }}/pangolin"
 pangolin_config_dir: "{{ pangolin_deploy_dir }}/config"
 pangolin_traefik_config_dir: "{{ pangolin_config_dir }}/traefik"
 
-# Source paths (relative to the playbook in cloud_server/ansible/)
-pangolin_local_source_dir: "{{ playbook_dir }}/../docker/pangolin"
-pangolin_local_compose_file: "{{ pangolin_local_source_dir }}/compose.yml"
-pangolin_local_traefik_dynamic_config: "{{ pangolin_local_source_dir }}/config/traefik/dynamic_config.yml"
-pangolin_local_traefik_config: "{{ pangolin_local_source_dir }}/config/traefik/traefik_config.yml"
-
 # Docker Compose settings
 pangolin_compose_project_name: "pangolin"
 pangolin_recreate_services: "auto"

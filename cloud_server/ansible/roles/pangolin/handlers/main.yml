@@ -3,13 +3,7 @@
   community.docker.docker_compose_v2:
     project_src: "{{ pangolin_deploy_dir }}"
     project_name: "{{ pangolin_compose_project_name }}"
-    state: present
+    state: restarted
     restarted: true # This tells the module to perform a restart action
-    # Alternatively, you could use:
-    # state: absent
-    # - name: Start Pangolin stack (after ensuring it's down)
-    #   community.docker.docker_compose_v2:
-    #     project_src: "{{ pangolin_deploy_dir }}"
-    #     project_name: "{{ pangolin_compose_project_name }}"
-    #     state: present
+
   listen: "Restart Pangolin stack"
