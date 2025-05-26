@@ -1,0 +1,13 @@
+- name: rebuild big-agi
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.big_agi.data_dir }}"
+    state: present
+    build: yes
+    pull: never
+    recreate: always # Force recreation of containers after build
+
+- name: restart big-agi
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.big_agi.data_dir }}"
+    state: restarted
+    pull: never

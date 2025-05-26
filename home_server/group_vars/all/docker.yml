@@ -11,7 +11,8 @@ services:
     network: homeserver_network
     data_dir: "{{ docker_base_dir }}/newt"
     
-  nextcloud:
-    name: nextcloud
-    network: homeserver_network
-    data_dir: "{{ docker_base_dir }}/nextcloud"
+  big_agi:
+      name: big-agi
+      network: homeserver_network
+      data_dir: "{{ docker_base_dir }}/big-agi"
+      repo_url: "https://github.com/enricoros/big-AGI.git"

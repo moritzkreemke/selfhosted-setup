@@ -1,0 +1,44 @@
+---
+- name: Install git (required for cloning repository)
+  package:
+    name: git
+    state: present
+
+- name: Define big-agi source directory path
+  set_fact:
+    big_agi_source_path: "{{ services.big_agi.data_dir }}/source"
+
+- name: Create big-agi parent and source directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ services.big_agi.data_dir }}"  # e.g., /root/docker/big-agi
+    - "{{ big_agi_source_path }}"        # e.g., /root/docker/big-agi/source
+
+- name: Clone big-AGI repository into source subdirectory
+  ansible.builtin.git:
+    repo: "{{ services.big_agi.repo_url }}"
+    dest: "{{ big_agi_source_path }}" # <--- Clone into the 'source' subdirectory
+    version: v2-dev
+    force: yes
+  notify: rebuild big-agi
+
+- name: Generate big-agi docker-compose file in parent directory
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ services.big_agi.data_dir }}/docker-compose.yml" # <--- Compose file in the parent
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart big-agi
+
+- name: Build and start big-agi service
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.big_agi.data_dir }}"
+    state: present
+    build: always
+    pull: never

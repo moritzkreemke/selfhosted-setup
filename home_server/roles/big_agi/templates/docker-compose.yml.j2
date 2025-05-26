@@ -1,0 +1,19 @@
+services:
+  big-agi:
+    build:
+      context: ./source  # This will use the Dockerfile in the repository root
+    container_name: {{ services.big_agi.name }}
+    restart: unless-stopped
+    environment:
+      - OPENAI_API_KEY={{ openai_api_key }}
+      - ANTHROPIC_API_KEY={{ anthropic_api_key }}
+      - MISTRAL_API_KEY={{ mistral_api_key }}
+      - ELEVENLABS_API_KEY={{ elevenlabs_api_key }}
+      - GEMINI_API_KEY={{ gemini_api_key }}
+      - DEEPSEEK_API_KEY={{ deepseek_api_key }}
+    networks:
+      - {{ services.big_agi.network }}
+
+networks:
+  {{ services.big_agi.network }}:
+    external: true

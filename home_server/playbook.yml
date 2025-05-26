@@ -3,7 +3,13 @@
   hosts: home_servers
   become: yes
   roles:
-    - common
-    - docker_network
-    - newt
-#    - nextcloud
+    - role: common
+      tags: ['common', 'setup']
+    - role: docker_network
+      tags: ['docker_network', 'setup']
+    - role: newt
+      tags: ['newt']
+    - role: big_agi
+      tags: ['big_agi']
+#    - role: nextcloud
+#      tags: ['nextcloud'] # Example if you add it back
