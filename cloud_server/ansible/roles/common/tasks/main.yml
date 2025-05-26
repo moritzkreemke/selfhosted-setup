@@ -41,7 +41,7 @@
     state: enabled
     immediate: yes
 
-- name: Configure firewalld to allow HTTP and HTTPS (optional)
+- name: Configure firewalld to allow HTTP and HTTPS
   ansible.posix.firewalld:
     service: "{{ item }}"
     permanent: yes
@@ -50,6 +50,13 @@
   loop:
     - http
     - https
+
+- name: Configure firewalld to allow WireGuard (UDP port 51820)
+  ansible.posix.firewalld:
+    port: 51820/udp  # Default WireGuard port
+    permanent: yes
+    state: enabled
+    immediate: yes
 
 # Harden SSH Configuration
 - name: Disallow root login over SSH
