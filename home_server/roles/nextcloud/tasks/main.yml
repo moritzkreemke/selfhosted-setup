@@ -1,0 +1,116 @@
+---
+- name: "Nextcloud | Load vault variables"
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/vault.yml"
+  no_log: true
+
+- name: "Nextcloud | Ensure directories exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ services.nextcloud.data_dir }}"
+    - "{{ services.nextcloud.volume_dir }}"
+    - "{{ services.nextcloud.volume_dir }}/mariadb_data"
+    - "{{ services.nextcloud.volume_dir }}/nextcloud_data"
+    - "{{ services.nextcloud.volume_dir }}/db_backups"
+    - "{{ services.nextcloud.data_dir }}/build"
+
+- name: "Nextcloud | Ask if restore is needed"
+  ansible.builtin.pause:
+    prompt: "Restore Nextcloud from backup? (yes/no)"
+  register: restore_prompt
+  when: nextcloud_restore is not defined
+
+- name: "Nextcloud | Set restore flag"
+  ansible.builtin.set_fact:
+    do_restore: "{{ nextcloud_restore | default(restore_prompt.user_input | default('no')) | bool }}"
+
+- name: "Nextcloud | Get snapshot ID for restore"
+  ansible.builtin.pause:
+    prompt: "Snapshot ID (press Enter for 'latest', or specify like 'c53a4d40')"
+  register: snapshot_prompt
+  when: do_restore
+
+- name: "Nextcloud | Set snapshot ID"
+  ansible.builtin.set_fact:
+    snapshot_id: "{{ snapshot_prompt.user_input if (snapshot_prompt.user_input is defined and snapshot_prompt.user_input != '') else 'latest' }}"
+  when: do_restore
+
+- name: "Nextcloud | Stop Nextcloud application before restore"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.nextcloud.data_dir }}"
+    files: ["docker-compose.yml"]
+    project_name: "{{ services.nextcloud.name }}"
+    state: absent
+  ignore_errors: true
+  when: do_restore
+
+- name: "Nextcloud | Stop backup containers before restore"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.nextcloud.data_dir }}"
+    files: ["backup-compose.yml"]
+    project_name: "{{ services.nextcloud.name }}_backup"
+    state: absent
+  ignore_errors: true
+  when: do_restore
+
+- name: "Nextcloud | Restore from backup"
+  ansible.builtin.command: >-
+    docker run --rm
+    --name nextcloud_restore_temp
+    -e RESTIC_REPOSITORY={{ services.nextcloud.restic_repository }}
+    -e RESTIC_PASSWORD={{ restic_password }}
+    -e B2_ACCOUNT_ID={{ b2_account_id }}
+    -e B2_ACCOUNT_KEY={{ b2_account_key }}
+    -v "{{ services.nextcloud.volume_dir }}:{{ services.nextcloud.backup_container_path }}:rw"
+    --entrypoint /sbin/tini
+    {{ restic_image }}
+    --
+    sh -c "
+    echo '=== Starting Nextcloud restore process ===' &&
+    echo 'Repository: {{ services.nextcloud.restic_repository }}' &&
+    echo 'Snapshot: {{ snapshot_id }}' &&
+    echo '=== Checking repository ===' &&
+    restic snapshots --no-lock &&
+    echo '=== Clearing target directory ===' &&
+    rm -rf /nextcloud-data/* /nextcloud-data/.* 2>/dev/null || true &&
+    echo '=== Restoring snapshot ===' &&
+    restic restore {{ snapshot_id }} --target / --path {{ services.nextcloud.backup_container_path }} --verbose &&
+    echo '=== Verifying restored files ===' &&
+    ls -la /nextcloud-data &&
+    echo '=== Nextcloud restore completed ==='
+    "
+  no_log: false
+  when: do_restore
+
+- name: "Nextcloud | Create Dockerfile"
+  ansible.builtin.template:
+    src: Dockerfile.j2
+    dest: "{{ services.nextcloud.data_dir }}/build/Dockerfile"
+    mode: '0644'
+
+- name: "Nextcloud | Deploy backup containers"
+  ansible.builtin.template:
+    src: backup-compose.yml.j2
+    dest: "{{ services.nextcloud.data_dir }}/backup-compose.yml"
+
+- name: "Nextcloud | Start backup stack"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.nextcloud.data_dir }}"
+    files: ["backup-compose.yml"]
+    project_name: "{{ services.nextcloud.name }}_backup"
+    state: present
+
+- name: "Nextcloud | Deploy application"
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ services.nextcloud.data_dir }}/docker-compose.yml"
+
+- name: "Nextcloud | Start Nextcloud"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.nextcloud.data_dir }}"
+    files: ["docker-compose.yml"]
+    project_name: "{{ services.nextcloud.name }}"
+    state: present

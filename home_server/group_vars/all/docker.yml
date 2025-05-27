@@ -56,3 +56,19 @@ services:
     restic_prune_cron: "0 2 * * *"
     restic_check_cron: "0 3 * * *"
     backup_container_path: "/paperless-data"
+
+  nextcloud:
+      name: nextcloud
+      network: homeserver_network
+      data_dir: "{{ docker_base_dir }}/nextcloud"
+      volume_dir: "{{ docker_base_dir }}/nextcloud/data"
+      restic_run_on_startup: "false"
+      restic_repository: "b2:homeserver-1-applications:/nextcloud"
+      restic_forget_args: "--keep-daily 7 --keep-weekly 4 --keep-monthly 6"
+      restic_backup_cron: "0 1 * * *"
+      restic_prune_cron: "0 2 * * *"
+      restic_check_cron: "0 3 * * *"
+      backup_container_path: "/nextcloud-data"
+      # External mount configuration
+      external_mount_source: "/srv/dev-disk-by-uuid-a1615ab6-c087-4bb0-a496-e806a339ea93/moritz_private"
+      external_mount_target: "/wd_red1/moritz_private"

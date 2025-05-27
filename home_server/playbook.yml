@@ -19,5 +19,5 @@
       tags: ['ofelia']
     - role: paperless
       tags: ['paperless']
-#    - role: nextcloud
-#      tags: ['nextcloud'] # Example if you add it back
+    - role: nextcloud
+      tags: ['nextcloud']

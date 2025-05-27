@@ -1,0 +1,40 @@
+services:
+  mariadb:
+    image: mariadb:11.2.3
+    container_name: {{ services.nextcloud.name }}_mariadb
+    restart: unless-stopped 
+    volumes: 
+      - {{ services.nextcloud.volume_dir }}/mariadb_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
+    networks: 
+      - nextcloud_net
+
+  nextcloud: 
+    build: ./build
+    container_name: {{ services.nextcloud.name }}_app
+    depends_on: 
+      - mariadb
+    restart: unless-stopped
+    volumes: 
+      - {{ services.nextcloud.volume_dir }}/nextcloud_data:/var/www/html
+      - {{ services.nextcloud.external_mount_source }}:{{ services.nextcloud.external_mount_target }}
+    networks: 
+      - nextcloud_net
+      - {{ services.nextcloud.network }}
+    environment:
+      MYSQL_HOST: {{ nextcloud_db_host }}
+    labels: 
+      - "ofelia.enabled=true"
+      - "ofelia.job-exec.nextcloudcron.schedule=@every 5m"
+      - "ofelia.job-exec.nextcloudcron.user=www-data"
+      - "ofelia.job-exec.nextcloudcron.command=php /var/www/html/cron.php"
+      - "ofelia.job-exec.previewgen.schedule=@every 10m"
+      - "ofelia.job-exec.previewgen.user=www-data"
+      - "ofelia.job-exec.previewgen.command=/var/www/html/occ preview:pre-generate"
+
+networks:
+  nextcloud_net:
+    internal: true
+  {{ services.nextcloud.network }}:
+    external: true
