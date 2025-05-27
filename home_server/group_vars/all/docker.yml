@@ -1,3 +1,8 @@
+
+# Backup configuration
+restic_image: "mazzolino/restic:1.8.0"
+restic_timezone: "Europe/Berlin"
+
 # Docker configuration
 docker_base_dir: /root/docker
 docker_networks:
@@ -16,3 +21,21 @@ services:
       network: homeserver_network
       data_dir: "{{ docker_base_dir }}/big-agi"
       repo_url: "https://github.com/enricoros/big-AGI.git"
+
+  openspeedtest:
+    name: openspeedtest
+    network: homeserver_network
+    data_dir: "{{ docker_base_dir }}/openspeedtest"
+
+  vaultwarden:
+      name: vaultwarden
+      network: homeserver_network
+      data_dir: "{{ docker_base_dir }}/vaultwarden"
+      volume_dir: "{{ docker_base_dir }}/vaultwarden/data"
+      restic_run_on_startup: "false"
+      restic_repository: "b2:homeserver-1-applications:/vaultwarden"
+      restic_forget_args: "--keep-daily 7 --keep-weekly 4 --keep-monthly 6"
+      restic_backup_cron: "0 1 * * *"
+      restic_prune_cron: "0 2 * * *"
+      restic_check_cron: "0 3 * * *"
+      backup_container_path: "/vaultwarden-data"

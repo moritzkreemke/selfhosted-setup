@@ -1,0 +1,13 @@
+services:
+  openspeedtest:
+    image: adolfintel/speedtest:latest
+    container_name: {{ services.openspeedtest.name }}
+    restart: unless-stopped
+    ports:
+      - 3000:80
+    networks:
+      - {{ services.newt.network }}
+
+networks:
+  {{ services.newt.network }}:
+    external: true

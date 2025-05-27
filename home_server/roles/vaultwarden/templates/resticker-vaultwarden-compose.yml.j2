@@ -1,0 +1,43 @@
+services:
+  backup:
+    image: {{ restic_image }}
+    container_name: {{ services.vaultwarden.name }}_backup
+    restart: unless-stopped
+    environment:
+      - RUN_ON_STARTUP={{ services.vaultwarden.restic_run_on_startup | default('false') }}
+      - BACKUP_CRON={{ services.vaultwarden.restic_backup_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.vaultwarden.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }} # From vault.yml
+      - RESTIC_BACKUP_SOURCES={{ services.vaultwarden.backup_container_path }}
+      - RESTIC_FORGET_ARGS={{ services.vaultwarden.restic_forget_args }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+    volumes:
+      - "{{ services.vaultwarden.volume_dir }}:{{ services.vaultwarden.backup_container_path }}:ro"
+
+  prune:
+    image: {{ restic_image }}
+    container_name: {{ services.vaultwarden.name }}_prune
+    restart: unless-stopped
+    environment:
+      - PRUNE_CRON={{ services.vaultwarden.restic_prune_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.vaultwarden.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+      - SKIP_INIT=true
+
+  check:
+    image: {{ restic_image }}
+    container_name: {{ services.vaultwarden.name }}_check
+    restart: unless-stopped
+    environment:
+      - CHECK_CRON={{ services.vaultwarden.restic_check_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.vaultwarden.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+      - SKIP_INIT=true

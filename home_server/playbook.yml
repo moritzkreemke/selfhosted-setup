@@ -11,5 +11,9 @@
       tags: ['newt']
     - role: big_agi
       tags: ['big_agi']
+    - role: openspeedtest
+      tags: ['openspeedtest']
+    - role: vaultwarden
+      tags: ['vaultwarden']
 #    - role: nextcloud
 #      tags: ['nextcloud'] # Example if you add it back

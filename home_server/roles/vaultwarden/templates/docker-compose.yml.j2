@@ -1,0 +1,16 @@
+services:
+  {{ services.vaultwarden.name }}:
+    image: vaultwarden/server:1.32.7
+    container_name: {{ services.vaultwarden.name }}
+    restart: unless-stopped
+    volumes:
+      - {{ services.vaultwarden.volume_dir }}:/data
+    environment: 
+      SIGNUPS_ALLOWED: 'false'
+      ADMIN_TOKEN: {{ admin_token }}
+    networks:
+      - {{ services.newt.network }}
+
+networks:
+  {{ services.newt.network }}:
+    external: true
