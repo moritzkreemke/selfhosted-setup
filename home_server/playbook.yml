@@ -15,5 +15,9 @@
       tags: ['openspeedtest']
     - role: vaultwarden
       tags: ['vaultwarden']
+    - role: ofelia
+      tags: ['ofelia']
+    - role: paperless
+      tags: ['paperless']
 #    - role: nextcloud
 #      tags: ['nextcloud'] # Example if you add it back

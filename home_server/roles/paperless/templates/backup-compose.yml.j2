@@ -1,0 +1,43 @@
+services:
+  backup:
+    image: {{ restic_image }}
+    container_name: {{ services.paperless.name }}_backup
+    restart: unless-stopped
+    environment:
+      - RUN_ON_STARTUP={{ services.paperless.restic_run_on_startup | default('false') }}
+      - BACKUP_CRON={{ services.paperless.restic_backup_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.paperless.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - RESTIC_BACKUP_SOURCES={{ services.paperless.backup_container_path }}
+      - RESTIC_FORGET_ARGS={{ services.paperless.restic_forget_args }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+    volumes:
+      - "{{ services.paperless.volume_dir }}:{{ services.paperless.backup_container_path }}:ro"
+
+  prune:
+    image: {{ restic_image }}
+    container_name: {{ services.paperless.name }}_prune
+    restart: unless-stopped
+    environment:
+      - PRUNE_CRON={{ services.paperless.restic_prune_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.paperless.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+      - SKIP_INIT=true
+
+  check:
+    image: {{ restic_image }}
+    container_name: {{ services.paperless.name }}_check
+    restart: unless-stopped
+    environment:
+      - CHECK_CRON={{ services.paperless.restic_check_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.paperless.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+      - SKIP_INIT=true

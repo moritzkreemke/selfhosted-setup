@@ -27,6 +27,10 @@ services:
     network: homeserver_network
     data_dir: "{{ docker_base_dir }}/openspeedtest"
 
+  ofelia:
+    name: ofelia
+    data_dir: "{{ docker_base_dir }}/ofelia"
+
   vaultwarden:
       name: vaultwarden
       network: homeserver_network
@@ -39,3 +43,16 @@ services:
       restic_prune_cron: "0 2 * * *"
       restic_check_cron: "0 3 * * *"
       backup_container_path: "/vaultwarden-data"
+  
+  paperless:
+    name: paperless
+    network: homeserver_network
+    data_dir: "{{ docker_base_dir }}/paperless"
+    volume_dir: "{{ docker_base_dir }}/paperless/data"
+    restic_run_on_startup: "false"
+    restic_repository: "b2:homeserver-1-applications:/paperless"
+    restic_forget_args: "--keep-daily 7 --keep-weekly 4 --keep-monthly 6"
+    restic_backup_cron: "0 1 * * *"
+    restic_prune_cron: "0 2 * * *"
+    restic_check_cron: "0 3 * * *"
+    backup_container_path: "/paperless-data"

@@ -1,0 +1,4 @@
+# Paperless settings
+paperless_admin_user: "admin"
+paperless_admin_email: "admin@{{ base_domain }}"
+paperless_url: "https://dms.{{ base_domain }}"

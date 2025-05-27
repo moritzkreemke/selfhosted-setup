@@ -1,0 +1,74 @@
+services:
+  broker:
+    image: redis:6.0
+    container_name: {{ services.paperless.name }}_broker
+    volumes: 
+      - {{ services.paperless.volume_dir }}/brokerdata:/data
+    restart: unless-stopped
+    networks: 
+      - paperless_net
+
+  db:
+    image: postgres:13
+    container_name: {{ services.paperless.name }}_db
+    restart: unless-stopped
+    volumes:
+      - {{ services.paperless.volume_dir }}/pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: paperless
+      POSTGRES_USER: paperless
+      POSTGRES_PASSWORD: paperless
+    networks: 
+      - paperless_net
+
+  webserver:
+    image: jonaswinkler/paperless-ng:latest
+    container_name: {{ services.paperless.name }}_webserver
+    restart: unless-stopped
+    depends_on:
+      - db
+      - broker
+      - gotenberg
+      - tika
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - {{ services.paperless.volume_dir }}/data:/usr/src/paperless/data
+      - {{ services.paperless.volume_dir }}/media:/usr/src/paperless/media
+      - {{ services.paperless.data_dir }}/export:/usr/src/paperless/export
+      - {{ services.paperless.data_dir }}/consume:/usr/src/paperless/consume
+    env_file: docker-compose.env
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBHOST: db
+      PAPERLESS_TIKA_ENABLED: 1
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://gotenberg:3000
+      PAPERLESS_TIKA_ENDPOINT: http://tika:9998
+    networks: 
+      - {{ services.paperless.network }}
+      - paperless_net
+
+  gotenberg:
+    image: thecodingmachine/gotenberg
+    container_name: {{ services.paperless.name }}_gotenberg
+    restart: unless-stopped
+    environment:
+      DISABLE_GOOGLE_CHROME: 1
+    networks: 
+      - paperless_net
+
+  tika:
+    image: apache/tika
+    container_name: {{ services.paperless.name }}_tika
+    restart: unless-stopped
+    networks: 
+      - paperless_net
+
+networks:
+  paperless_net:
+    internal: true
+  {{ services.paperless.network }}:
+    external: true

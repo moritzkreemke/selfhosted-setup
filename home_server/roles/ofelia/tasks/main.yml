@@ -1,0 +1,23 @@
+---
+- name: Create newt directory
+  file:
+    path: "{{ services.ofelia.data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Generate newt docker-compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ services.ofelia.data_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Start newt service
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.ofelia.data_dir }}"
+    state: present
+    pull: missing
+    recreate: always

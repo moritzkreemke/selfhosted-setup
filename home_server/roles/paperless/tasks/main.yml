@@ -1,0 +1,118 @@
+---
+- name: "Paperless | Load vault variables"
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/vault.yml"
+  no_log: true
+  
+- name: "Paperless | Ensure directories exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ services.paperless.data_dir }}"
+    - "{{ services.paperless.volume_dir }}"
+    - "{{ services.paperless.volume_dir }}/data"
+    - "{{ services.paperless.volume_dir }}/media"
+    - "{{ services.paperless.volume_dir }}/pgdata"
+    - "{{ services.paperless.volume_dir }}/brokerdata"
+    - "{{ services.paperless.data_dir }}/export"
+    - "{{ services.paperless.data_dir }}/consume"
+
+- name: "Paperless | Ask if restore is needed"
+  ansible.builtin.pause:
+    prompt: "Restore Paperless from backup? (yes/no)"
+  register: restore_prompt
+  when: paperless_restore is not defined
+
+- name: "Paperless | Set restore flag"
+  ansible.builtin.set_fact:
+    do_restore: "{{ paperless_restore | default(restore_prompt.user_input | default('no')) | bool }}"
+
+- name: "Paperless | Get snapshot ID for restore"
+  ansible.builtin.pause:
+    prompt: "Snapshot ID (press Enter for 'latest', or specify like 'c53a4d40')"
+  register: snapshot_prompt
+  when: do_restore
+
+- name: "Paperless | Set snapshot ID"
+  ansible.builtin.set_fact:
+    snapshot_id: "{{ snapshot_prompt.user_input if (snapshot_prompt.user_input is defined and snapshot_prompt.user_input != '') else 'latest' }}"
+  when: do_restore
+
+- name: "Paperless | Stop Paperless application before restore"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.paperless.data_dir }}"
+    files: ["docker-compose.yml"]
+    project_name: "{{ services.paperless.name }}"
+    state: absent
+  ignore_errors: true
+  when: do_restore
+
+- name: "Paperless | Stop backup containers before restore"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.paperless.data_dir }}"
+    files: ["backup-compose.yml"]
+    project_name: "{{ services.paperless.name }}_backup"
+    state: absent
+  ignore_errors: true
+  when: do_restore
+
+- name: "Paperless | Restore from backup"
+  ansible.builtin.command: >-
+    docker run --rm
+    --name paperless_restore_temp
+    -e RESTIC_REPOSITORY={{ services.paperless.restic_repository }}
+    -e RESTIC_PASSWORD={{ restic_password }}
+    -e B2_ACCOUNT_ID={{ b2_account_id }}
+    -e B2_ACCOUNT_KEY={{ b2_account_key }}
+    -v "{{ services.paperless.volume_dir }}:{{ services.paperless.backup_container_path }}:rw"
+    --entrypoint /sbin/tini
+    {{ restic_image }}
+    --
+    sh -c "
+    echo '=== Starting Paperless restore process ===' &&
+    echo 'Repository: {{ services.paperless.restic_repository }}' &&
+    echo 'Snapshot: {{ snapshot_id }}' &&
+    echo '=== Checking repository ===' &&
+    restic snapshots --no-lock &&
+    echo '=== Clearing target directory ===' &&
+    rm -rf /paperless-data/* /paperless-data/.* 2>/dev/null || true &&
+    echo '=== Restoring snapshot ===' &&
+    restic restore {{ snapshot_id }} --target / --path {{ services.paperless.backup_container_path }} --verbose &&
+    echo '=== Verifying restored files ===' &&
+    ls -la /paperless-data &&
+    echo '=== Paperless restore completed ==='
+    "
+  no_log: false
+  when: do_restore
+
+- name: "Paperless | Create environment file"
+  ansible.builtin.template:
+    src: docker-compose.env.j2
+    dest: "{{ services.paperless.data_dir }}/docker-compose.env"
+    mode: '0600'
+
+- name: "Paperless | Deploy backup containers"
+  ansible.builtin.template:
+    src: backup-compose.yml.j2
+    dest: "{{ services.paperless.data_dir }}/backup-compose.yml"
+
+- name: "Paperless | Start backup stack"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.paperless.data_dir }}"
+    files: ["backup-compose.yml"]
+    project_name: "{{ services.paperless.name }}_backup"
+    state: present
+
+- name: "Paperless | Deploy application"
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ services.paperless.data_dir }}/docker-compose.yml"
+
+- name: "Paperless | Start Paperless"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.paperless.data_dir }}"
+    files: ["docker-compose.yml"]
+    project_name: "{{ services.paperless.name }}"
+    state: present
