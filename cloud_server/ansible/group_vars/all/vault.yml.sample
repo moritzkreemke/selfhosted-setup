@@ -1,0 +1,9 @@
+
+pangolin_server_secret: "" # Replace with a securely generated secret
+pangolin_admin_password: ""
+
+pangolin_base_domain: "yourdomain.com"
+
+restic_password: ""
+b2_account_id: ""
+b2_account_key: ""
