@@ -34,3 +34,5 @@ id_rsa*
 # Python virtual environment
 .venv/
 venv/
+home_server/inventory.ini
+cloud_server/ansible/inventory.ini
