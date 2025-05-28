@@ -1,6 +1,6 @@
 services:
   {{ services.vaultwarden.name }}:
-    image: vaultwarden/server:1.32.7
+    image: vaultwarden/server:1.34.1
     container_name: {{ services.vaultwarden.name }}
     restart: unless-stopped
     volumes:
