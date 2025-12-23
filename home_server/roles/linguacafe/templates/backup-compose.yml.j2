@@ -1,0 +1,43 @@
+services:
+  backup:
+    image: {{ restic_image }}
+    container_name: {{ services.linguacafe.name }}_backup
+    restart: unless-stopped
+    environment:
+      - RUN_ON_STARTUP={{ services.linguacafe.restic_run_on_startup | default('false') }}
+      - BACKUP_CRON={{ services.linguacafe.restic_backup_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.linguacafe.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - RESTIC_BACKUP_SOURCES={{ services.linguacafe.backup_container_path }}
+      - RESTIC_FORGET_ARGS={{ services.linguacafe.restic_forget_args }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+    volumes:
+      - "{{ services.linguacafe.volume_dir }}:{{ services.linguacafe.backup_container_path }}:ro"
+
+  prune:
+    image: {{ restic_image }}
+    container_name: {{ services.linguacafe.name }}_prune
+    restart: unless-stopped
+    environment:
+      - PRUNE_CRON={{ services.linguacafe.restic_prune_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.linguacafe.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+      - SKIP_INIT=true
+
+  check:
+    image: {{ restic_image }}
+    container_name: {{ services.linguacafe.name }}_check
+    restart: unless-stopped
+    environment:
+      - CHECK_CRON={{ services.linguacafe.restic_check_cron }}
+      - TZ={{ restic_timezone }}
+      - RESTIC_REPOSITORY={{ services.linguacafe.restic_repository }}
+      - RESTIC_PASSWORD={{ restic_password }}
+      - B2_ACCOUNT_ID={{ b2_account_id }}
+      - B2_ACCOUNT_KEY={{ b2_account_key }}
+      - SKIP_INIT=true

@@ -21,3 +21,5 @@
       tags: ['paperless']
     - role: nextcloud
       tags: ['nextcloud']
+    - role: linguacafe
+      tags: ['linguacafe']

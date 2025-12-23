@@ -1,0 +1,85 @@
+services:
+  webserver:
+    image: ghcr.io/simjanos-dev/linguacafe-webserver:${VERSION:-latest}
+    container_name: {{ services.linguacafe.name }}_webserver
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - {{ services.linguacafe.volume_dir }}:/var/www/html/storage
+      - {{ services.linguacafe.data_dir }}/supervisor-horizon.conf:/etc/supervisor/conf.d/horizon.conf
+      - {{ services.linguacafe.data_dir }}/supervisor-websockets.conf:/etc/supervisor/conf.d/websockets.conf
+    environment:
+      DB_DATABASE: {{ linguacafe_db_name }}
+      DB_USERNAME: {{ linguacafe_db_user }}
+      DB_PASSWORD: {{ linguacafe_db_password }}
+      DB_HOST: {{ linguacafe_db_host }}
+      DB_PORT: {{ linguacafe_db_port }}
+      BACKUP_INTERVAL: "59 23 * * *"
+      MAX_SAVED_BACKUPS: 14
+      REDIS_HOST: {{ linguacafe_redis_host }}
+      PYTHON_CONTAINER_NAME: {{ services.linguacafe.name }}_python_service
+    networks:
+      - linguacafe_net
+      - {{ services.linguacafe.network }}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  mysql:
+    image: mysql:8.0
+    container_name: {{ services.linguacafe.name }}_database
+    restart: unless-stopped
+    tty: true
+    healthcheck:
+      test: ["CMD", 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p{{ linguacafe_mysql_root_password }}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - {{ services.linguacafe.volume_dir }}/database:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: {{ linguacafe_db_name }}
+      MYSQL_USER: {{ linguacafe_db_user }}
+      MYSQL_PASSWORD: {{ linguacafe_db_password }}
+      MYSQL_ROOT_PASSWORD: {{ linguacafe_mysql_root_password }}
+      SERVICE_NAME: linguacafe
+    command: mysqld --general-log=1 --general-log-file=/var/lib/mysql/general-log.log
+    networks:
+      - linguacafe_net
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: {{ services.linguacafe.name }}_redis
+    restart: unless-stopped
+    volumes:
+      - {{ services.linguacafe.volume_dir }}/cache:/data
+    environment:
+      REDIS_PASSWORD: {{ linguacafe_redis_password }}
+      REDIS_PORT: 6379
+      REDIS_DATABASES: 16
+    networks:
+      - linguacafe_net
+
+  python:
+    container_name: {{ services.linguacafe.name }}_python_service
+    command: "python3 /app/tokenizer.py"
+    restart: unless-stopped
+    tty: true
+    image: ghcr.io/simjanos-dev/linguacafe-python-service:${VERSION:-latest}
+    environment:
+      PYTHONPATH: "/var/www/html/storage/app/model"
+    volumes:
+      - {{ services.linguacafe.volume_dir }}:/var/www/html/storage
+    networks:
+      - linguacafe_net
+      - {{ services.linguacafe.network }}
+    platform: ${PLATFORM:-}
+
+networks:
+  linguacafe_net:
+    internal: true
+  {{ services.linguacafe.network }}:
+    external: true

@@ -1,0 +1,119 @@
+---
+- name: "LinguaCafe | Load vault variables"
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/vault.yml"
+  no_log: true
+
+- name: "LinguaCafe | Ensure directories exist"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ services.linguacafe.data_dir }}"
+
+- name: "LinguaCafe | Ensure storage directory exists with correct ownership"
+  ansible.builtin.file:
+    path: "{{ services.linguacafe.volume_dir }}"
+    state: directory
+    mode: '0755'
+    owner: '1000'
+    group: '1000'
+
+- name: "LinguaCafe | Ask if restore is needed"
+  ansible.builtin.pause:
+    prompt: "Restore LinguaCafe from backup? (yes/no)"
+  register: restore_prompt
+  when: linguacafe_restore is not defined
+
+- name: "LinguaCafe | Set restore flag"
+  ansible.builtin.set_fact:
+    do_restore: "{{ linguacafe_restore | default(restore_prompt.user_input | default('no')) | bool }}"
+
+- name: "LinguaCafe | Get snapshot ID for restore"
+  ansible.builtin.pause:
+    prompt: "Snapshot ID (press Enter for 'latest', or specify like 'c53a4d40')"
+  register: snapshot_prompt
+  when: do_restore
+
+- name: "LinguaCafe | Set snapshot ID"
+  ansible.builtin.set_fact:
+    snapshot_id: "{{ snapshot_prompt.user_input if (snapshot_prompt.user_input is defined and snapshot_prompt.user_input != '') else 'latest' }}"
+  when: do_restore
+
+- name: "LinguaCafe | Stop LinguaCafe application before restore"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.linguacafe.data_dir }}"
+    files: ["docker-compose.yml"]
+    project_name: "{{ services.linguacafe.name }}"
+    state: absent
+  ignore_errors: true
+  when: do_restore
+
+- name: "LinguaCafe | Stop backup containers before restore"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.linguacafe.data_dir }}"
+    files: ["backup-compose.yml"]
+    project_name: "{{ services.linguacafe.name }}_backup"
+    state: absent
+  ignore_errors: true
+  when: do_restore
+
+- name: "LinguaCafe | Restore from backup"
+  ansible.builtin.command: >-
+    docker run --rm
+    --name linguacafe_restore_temp
+    -e RESTIC_REPOSITORY={{ services.linguacafe.restic_repository }}
+    -e RESTIC_PASSWORD={{ restic_password }}
+    -e B2_ACCOUNT_ID={{ b2_account_id }}
+    -e B2_ACCOUNT_KEY={{ b2_account_key }}
+    -v "{{ services.linguacafe.volume_dir }}:{{ services.linguacafe.backup_container_path }}:rw"
+    --entrypoint /sbin/tini
+    {{ restic_image }}
+    --
+    sh -c "
+    echo '=== Starting LinguaCafe restore process ===' &&
+    echo 'Repository: {{ services.linguacafe.restic_repository }}' &&
+    echo 'Snapshot: {{ snapshot_id }}' &&
+    echo '=== Checking repository ===' &&
+    restic snapshots --no-lock &&
+    echo '=== Clearing target directory ===' &&
+    rm -rf /linguacafe-data/* /linguacafe-data/.* 2>/dev/null || true &&
+    echo '=== Restoring snapshot ===' &&
+    restic restore {{ snapshot_id }} --target / --path {{ services.linguacafe.backup_container_path }} --verbose &&
+    echo '=== Verifying restored files ===' &&
+    ls -la /linguacafe-data &&
+    echo '=== LinguaCafe restore completed ==='
+    "
+  no_log: false
+  when: do_restore
+
+- name: "LinguaCafe | Create environment file"
+  ansible.builtin.template:
+    src: .env.j2
+    dest: "{{ services.linguacafe.data_dir }}/.env"
+    mode: '0644'
+
+- name: "LinguaCafe | Deploy backup containers"
+  ansible.builtin.template:
+    src: backup-compose.yml.j2
+    dest: "{{ services.linguacafe.data_dir }}/backup-compose.yml"
+
+- name: "LinguaCafe | Start backup stack"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.linguacafe.data_dir }}"
+    files: ["backup-compose.yml"]
+    project_name: "{{ services.linguacafe.name }}_backup"
+    state: present
+
+- name: "LinguaCafe | Deploy application"
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ services.linguacafe.data_dir }}/docker-compose.yml"
+
+- name: "LinguaCafe | Start LinguaCafe"
+  community.docker.docker_compose_v2:
+    project_src: "{{ services.linguacafe.data_dir }}"
+    files: ["docker-compose.yml"]
+    project_name: "{{ services.linguacafe.name }}"
+    state: present

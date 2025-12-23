@@ -1,0 +1,7 @@
+# LinguaCafe database configuration
+linguacafe_db_host: "linguacafe_database"
+linguacafe_db_port: "3306"
+linguacafe_db_name: "linguacafe"
+linguacafe_db_user: "linguacafe"
+linguacafe_redis_password: "linguacafe"
+linguacafe_redis_host: "linguacafe_redis"
