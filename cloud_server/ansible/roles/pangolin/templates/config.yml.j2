@@ -20,6 +20,7 @@ server:
         token: "P-Access-Token"
     resource_session_request_param: "p_session_request"
     secret: "{{ pangolin_server_secret }}"
+    maxmind_db_path: "./config/GeoLite2-Country.mmdb"
     cors:
         origins: {{ pangolin_cors_origins | to_json }} # Ensure this is valid YAML/JSON list
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
@@ -43,11 +44,6 @@ rate_limits:
     global:
         window_minutes: 1
         max_requests: 500
-
-users:
-    server_admin:
-        email: "{{ pangolin_admin_email }}"
-        password: "{{ pangolin_admin_password }}"
 
 flags:
     require_email_verification: false

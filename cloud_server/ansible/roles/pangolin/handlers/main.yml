@@ -4,6 +4,5 @@
     project_src: "{{ pangolin_deploy_dir }}"
     project_name: "{{ pangolin_compose_project_name }}"
     state: restarted
-    restarted: true # This tells the module to perform a restart action
 
   listen: "Restart Pangolin stack"

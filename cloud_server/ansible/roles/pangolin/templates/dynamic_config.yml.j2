@@ -51,3 +51,11 @@
           loadBalancer:
             servers:
               - url: "http://{{ traefik_internal_pangolin_hostname }}:{{ traefik_internal_api_port }}" # API/WebSocket server
+tcp:
+  serversTransports:
+    pp-transport-v1:
+      proxyProtocol:
+        version: 1
+    pp-transport-v2:
+      proxyProtocol:
+        version: 2

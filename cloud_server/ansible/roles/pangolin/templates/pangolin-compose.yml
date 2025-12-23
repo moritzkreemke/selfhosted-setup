@@ -1,6 +1,6 @@
 services:
   pangolin:
-    image: fosrl/pangolin:1.4.0
+    image: ghcr.io/fosrl/pangolin:1.14.0
     container_name: pangolin
     restart: unless-stopped
     volumes:
@@ -12,7 +12,7 @@ services:
       retries: 15
 
   gerbil:
-    image: fosrl/gerbil:1.0.0
+    image: ghcr.io/fosrl/gerbil:1.3.0
     container_name: gerbil
     restart: unless-stopped
     depends_on:
@@ -34,7 +34,7 @@ services:
       - 80:80 # Port for traefik because of the network_mode
 
   traefik:
-    image: traefik:v3.3.3
+    image: traefik:v3.6.5
     container_name: traefik
     restart: unless-stopped
     network_mode: service:gerbil # Ports appear on the gerbil service
